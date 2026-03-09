@@ -1,0 +1,1316 @@
+<!-- ai_studio_code - 2026-03-08T134500.054.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>5S Chat (WhatsApp Clone)</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        /* WhatsApp Theme Colors - Default Light */
+        :root {
+            --wa-teal: #00a884;
+            --wa-dark-teal: #008069;
+            --wa-bg: #eefeeb;
+            --wa-chat-bg: #efeae2;
+            --wa-header-bg: #f0f2f5;
+            --wa-panel-bg: #ffffff;
+            --wa-text-primary: #111b21;
+            --wa-text-secondary: #54656f;
+            --wa-bubble-out: #d9fdd3;
+            --wa-bubble-in: #ffffff;
+            --wa-border: #e9edef;
+        }
+
+        /* Dark Mode Variables */
+        .dark-theme {
+            --wa-teal: #00a884;
+            --wa-dark-teal: #00a884;
+            --wa-bg: #111b21;
+            --wa-chat-bg: #0b141a; /* Dark chat background */
+            --wa-header-bg: #202c33;
+            --wa-panel-bg: #111b21;
+            --wa-text-primary: #e9edef;
+            --wa-text-secondary: #8696a0;
+            --wa-bubble-out: #005c4b;
+            --wa-bubble-in: #202c33;
+            --wa-border: #222d34;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--wa-bg); 
+            color: var(--wa-text-primary);
+            height: 100vh;
+            overflow: hidden;
+            overscroll-behavior: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+
+        /* Background Pattern */
+        .chat-bg {
+            background-color: var(--wa-chat-bg);
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M15 15h10v10H15zM55 55h10v10H55z' fill='%23888888' fill-opacity='0.1'/%3E%3C/svg%3E");
+        }
+
+        .app-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            height: 100%;
+            display: flex;
+            background: var(--wa-panel-bg);
+            color: var(--wa-text-primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        /* Message Bubbles */
+        .msg-bubble {
+            max-width: 75%;
+            padding: 6px 7px 8px 9px; 
+            border-radius: 8px;
+            position: relative;
+            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+            font-size: 14.2px;
+            line-height: 19px;
+            margin-bottom: 8px; /* Extra space for reaction */
+            transition: transform 0.1s ease-out;
+        }
+        
+        .msg-out { background-color: var(--wa-bubble-out); align-self: flex-end; border-top-right-radius: 0; }
+        .msg-in { background-color: var(--wa-bubble-in); align-self: flex-start; border-top-left-radius: 0; }
+
+        /* Reaction Badge */
+        .reaction-badge {
+            position: absolute;
+            bottom: -10px;
+            right: 0; 
+            background: var(--wa-panel-bg);
+            border: 1px solid var(--wa-border);
+            border-radius: 12px;
+            padding: 2px 5px;
+            font-size: 14px;
+            line-height: 1;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        .msg-in .reaction-badge { right: auto; left: 0; }
+
+        /* File Download Button */
+        .file-msg-box {
+            display: flex;
+            align-items: center;
+            background: rgba(0,0,0,0.05);
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 2px;
+        }
+        .dark-theme .file-msg-box { background: rgba(255,255,255,0.1); }
+        
+        /* Timestamp Layout */
+        .msg-content-wrapper { display: inline-block; word-wrap: break-word; }
+        
+        .msg-meta {
+            float: right;
+            margin-left: 8px;
+            margin-top: 4px;
+            margin-bottom: -5px; 
+            font-size: 11px;
+            color: var(--wa-text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            vertical-align: bottom;
+            height: 15px;
+        }
+
+        /* Mobile Chat Window Scaling */
+        .chat-area { transition: transform 0.3s ease-in-out; }
+        
+        @media (max-width: 768px) {
+            .app-container { width: 100%; }
+            .sidebar { width: 100% !important; display: flex; flex-direction: column; }
+            
+            .chat-area { 
+                position: fixed; 
+                top: 0; left: 0; 
+                width: 100vw !important; height: 100vh !important; 
+                z-index: 50; 
+                transform: translateX(100%); 
+                background-color: var(--wa-chat-bg);
+            }
+            .chat-area.active { transform: translateX(0); }
+        }
+
+        /* Loading Spinner */
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid var(--wa-teal); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Utilities */
+        .sidebar-header { background-color: var(--wa-header-bg); border-color: var(--wa-border); }
+        .bg-panel { background-color: var(--wa-panel-bg); }
+        .bg-header { background-color: var(--wa-header-bg); }
+        
+        /* Toggle Switch */
+        .toggle-checkbox { opacity: 0; width: 0; height: 0; }
+        .toggle-label {
+            position: relative; display: block; overflow: hidden;
+            height: 20px; width: 40px; border-radius: 10px; cursor: pointer;
+            background-color: #ccc; transition: background-color 0.2s;
+        }
+        .toggle-checkbox:checked + .toggle-label { background-color: var(--wa-teal); }
+        .toggle-label:before {
+            content: ""; position: absolute; top: 2px; left: 2px;
+            display: block; width: 16px; height: 16px; border-radius: 50%;
+            background: #fff; transition: transform 0.2s;
+        }
+        .toggle-checkbox:checked + .toggle-label:before { transform: translateX(20px); }
+
+        /* Emoji Picker Styles */
+        .emoji-picker-container {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .emoji-btn { font-size: 1.5rem; cursor: pointer; text-align: center; padding: 5px; border-radius: 5px; user-select: none; }
+        .emoji-btn:hover { background-color: rgba(0,0,0,0.1); }
+
+        /* Info Popup Animation */
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .animate-scale-in {
+            animation: scaleIn 0.2s ease-out forwards;
+        }
+    </style>
+</head>
+<body :class="{ 'dark-theme': isDarkMode }">
+
+<div id="app" class="h-full">
+    
+    <!-- 1. AUTHENTICATION PAGE -->
+    <div v-if="!currentUser" class="h-full w-full flex flex-col relative bg-[#d1d7db]">
+        <div class="h-[220px] bg-[#00a884] w-full absolute top-0 left-0 z-0">
+            <div class="max-w-[1000px] mx-auto p-8 flex items-center gap-3 text-white">
+                <i class="fab fa-whatsapp text-4xl"></i>
+                <span class="font-bold text-sm tracking-wider">5S CHAT WEB</span>
+            </div>
+        </div>
+
+        <div class="z-10 flex-1 flex items-center justify-center p-4">
+            <div class="bg-white rounded-lg shadow-lg w-full max-w-[450px] overflow-hidden">
+                <div class="p-8">
+                    <h2 class="text-2xl font-light text-[#41525d] mb-6 text-center">
+                        {{ isRegistering ? 'Create Account' : 'Login to 5S Chat' }}
+                    </h2>
+                    <div v-if="authError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 text-sm">{{ authError }}</div>
+                    <form @submit.prevent="handleAuth">
+                        <div class="mb-4">
+                            <label class="block text-gray-700 text-sm font-bold mb-2">Email Address</label>
+                            <input v-model="authForm.email" type="email" required class="w-full border-b-2 border-gray-200 focus:border-[#00a884] outline-none py-2 px-1 text-gray-700 bg-transparent transition-colors">
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
+                            <input v-model="authForm.password" type="password" required class="w-full border-b-2 border-gray-200 focus:border-[#00a884] outline-none py-2 px-1 text-gray-700 bg-transparent transition-colors">
+                        </div>
+                        <button type="submit" class="w-full bg-[#00a884] hover:bg-[#008f6f] text-white font-bold py-3 rounded-full transition-colors shadow-md">
+                            <i v-if="loading" class="fas fa-spinner fa-spin mr-2"></i> {{ isRegistering ? 'Sign Up' : 'Login' }}
+                        </button>
+                    </form>
+                    <div class="mt-6 text-center text-sm text-gray-600">
+                        <span v-if="isRegistering">Already have an account?</span>
+                        <span v-else>New to 5S Chat?</span>
+                        <button @click="toggleAuthMode" class="text-[#00a884] font-bold ml-1 hover:underline">
+                            {{ isRegistering ? 'Login' : 'Create Account' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. MAIN APP -->
+    <div v-else class="app-container overflow-hidden relative">
+        
+        <!-- Sidebar -->
+        <div :class="['sidebar w-[30%] min-w-[320px] bg-panel border-r border-gray-300 h-full flex flex-col relative z-10', activeChat ? 'hidden md:flex' : '']" style="border-color: var(--wa-border);">
+            
+            <!-- Sidebar Header -->
+            <div class="sidebar-header px-4 py-3 flex justify-between items-center border-b" style="border-color: var(--wa-border);">
+                <div class="relative cursor-pointer" @click="activeTab = 'profile'">
+                    <img :src="currentUser?.avatar || 'https://via.placeholder.com/40'" class="w-10 h-10 rounded-full object-cover">
+                </div>
+                <div class="flex gap-4 text-secondary">
+                    <button @click="activeTab = 'requests'" class="relative" title="Requests">
+                        <i class="fas fa-user-plus text-lg"></i>
+                        <span v-if="requestCount > 0" class="absolute -top-2 -right-2 bg-green-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{{ requestCount }}</span>
+                    </button>
+                    <button @click="activeTab = 'chats'" title="Chats"><i class="fas fa-comment-alt text-lg"></i></button>
+                    <button @click="activeTab = 'settings'" title="Settings"><i class="fas fa-cog text-lg"></i></button>
+                </div>
+            </div>
+
+            <!-- Tab: Chats List -->
+            <div v-if="activeTab === 'chats'" class="flex-1 overflow-y-auto bg-panel">
+                <div class="px-2 py-2">
+                     <div class="relative">
+                        <input type="text" placeholder="Search or start new chat" class="w-full bg-header py-2 px-10 rounded-lg text-sm focus:outline-none text-primary" style="background-color: var(--wa-header-bg);">
+                        <i class="fas fa-search absolute left-3 top-3 text-secondary text-xs"></i>
+                    </div>
+                </div>
+                <div v-for="chat in chatList" :key="chat.id" 
+                     @click="openChat(chat)" 
+                     @contextmenu.prevent="handleChatLongPress(chat, $event)"
+                     @touchstart="handleChatTouchStart(chat, $event)"
+                     @touchend="handleChatTouchEnd"
+                     class="flex items-center px-3 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors border-b" style="border-color: var(--wa-border);">
+                    <img :src="chat.avatar" class="w-12 h-12 rounded-full object-cover mr-3">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-baseline mb-1">
+                            <h3 class="text-primary font-medium truncate">{{ chat.name }}</h3>
+                            <span class="text-xs text-secondary" :class="{'text-green-500 font-bold': chat.unread > 0}">{{ formatTime(chat.timestamp) }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <p class="text-sm text-secondary truncate w-[85%] flex items-center">
+                                <span v-if="chat.lastSender === currentUser.uid" class="mr-1">
+                                    <i v-if="chat.status === 'seen'" class="fas fa-check-double text-blue-500 text-xs"></i>
+                                    <i v-else-if="chat.status === 'delivered'" class="fas fa-check-double text-gray-400 text-xs"></i>
+                                    <i v-else class="fas fa-check text-gray-400 text-xs"></i>
+                                </span>
+                                {{ chat.lastMessage }}
+                            </p>
+                            <span v-if="chat.unread > 0" class="bg-[#25d366] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{{ chat.unread }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div v-if="chatList.length === 0" class="text-center mt-10 text-secondary text-sm p-4">
+                    <div class="mb-2 text-xl"><i class="fas fa-inbox"></i></div>
+                    No chats yet.<br>Click the <i class="fas fa-user-plus"></i> icon to add friends by their 6-digit UID.
+                </div>
+            </div>
+
+            <!-- Tab: Requests -->
+            <div v-if="activeTab === 'requests'" class="flex-1 overflow-y-auto bg-panel">
+                <div class="p-4 border-b" style="border-color: var(--wa-border);">
+                    <div class="flex items-center mb-4">
+                        <button @click="activeTab = 'chats'" class="mr-3 text-secondary"><i class="fas fa-arrow-left"></i></button>
+                        <h2 class="font-bold text-[#008069]">Add New Contact</h2>
+                    </div>
+                    <div class="flex gap-2">
+                        <input v-model="targetUidInput" type="number" placeholder="Enter 6-digit UID" class="flex-1 border p-2 rounded text-sm focus:border-[#008069] outline-none bg-panel text-primary">
+                        <button @click="sendRequest" class="bg-[#008069] text-white px-4 rounded text-sm">Send</button>
+                    </div>
+                    <p v-if="reqStatus" class="text-xs mt-2" :class="reqStatus.type === 'error' ? 'text-red-500' : 'text-green-600'">{{ reqStatus.msg }}</p>
+                </div>
+                <div class="p-2">
+                    <h3 class="text-xs font-bold text-secondary uppercase px-2 mb-2">Pending Requests</h3>
+                    <div v-for="req in requests" :key="req.uid" class="flex items-center p-3 border-b text-primary" style="border-color: var(--wa-border);">
+                        <div class="flex-1">
+                            <div class="font-bold">{{ req.username || 'User ' + req.numeric_uid }}</div>
+                            <div class="text-xs text-secondary">UID: {{ req.numeric_uid }}</div>
+                        </div>
+                        <div v-if="req.type === 'incoming'" class="flex gap-2">
+                            <button @click.stop="acceptRequest(req)" class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center hover:bg-green-200 transition-colors"><i class="fas fa-check"></i></button>
+                            <button @click.stop="rejectRequest(req)" class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition-colors"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div v-else class="text-xs text-gray-400 italic">Sent</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Profile -->
+            <div v-if="activeTab === 'profile'" class="flex-1 bg-header pt-8 overflow-y-auto">
+                <div class="flex flex-col items-center">
+                    <button @click="activeTab = 'chats'" class="self-start ml-4 mb-4 text-secondary md:hidden"><i class="fas fa-arrow-left text-xl"></i></button>
+                    <div class="relative group cursor-pointer">
+                        <img :src="currentUser?.avatar" class="w-32 h-32 rounded-full border-4 border-white mb-4">
+                        <div class="absolute bottom-4 right-0 bg-[#008069] p-2 rounded-full text-white shadow" @click="changeAvatar"><i class="fas fa-camera"></i></div>
+                    </div>
+                    <div class="w-full bg-panel p-4 shadow-sm mb-2">
+                        <label class="text-[#008069] text-sm font-bold">Your Name</label>
+                        <div class="text-primary text-lg mt-1">{{ currentUser?.username }}</div>
+                    </div>
+                    <div class="w-full bg-panel p-4 shadow-sm mb-2">
+                        <label class="text-[#008069] text-sm font-bold">About</label>
+                        <div class="text-primary text-sm mt-1">{{ currentUser?.bio || 'Hey there! I am using 5S Chat.' }}</div>
+                    </div>
+                    <div class="w-full bg-panel p-4 shadow-sm mb-6">
+                        <label class="text-[#008069] text-sm font-bold">Your UID Code</label>
+                        <div class="mt-1 text-2xl tracking-widest text-secondary font-mono">{{ currentUser?.numeric_uid }}</div>
+                        <p class="text-xs text-secondary mt-2">Share this code with others so they can add you.</p>
+                    </div>
+                    <button @click="activeTab = 'editProfile'" class="bg-[#00a884] text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-[#008f6f] transition-colors mb-4">
+                        <i class="fas fa-pen mr-2"></i> Edit Profile
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab: Edit Profile -->
+            <div v-if="activeTab === 'editProfile'" class="flex-1 bg-panel flex flex-col h-full absolute inset-0 z-20">
+                <div class="bg-header px-4 py-3 flex items-center border-b text-primary">
+                    <button @click="activeTab = 'profile'" class="mr-4 text-secondary"><i class="fas fa-arrow-left"></i></button>
+                    <h2 class="font-bold">Edit Profile</h2>
+                </div>
+                <div class="p-4">
+                    <label class="text-[#008069] text-sm font-bold block mb-2">Enter Name</label>
+                    <input v-model="tempName" class="w-full border-b border-[#008069] bg-transparent outline-none py-2 text-primary mb-6" placeholder="Your Profile Name / Title">
+                    <label class="text-[#008069] text-sm font-bold block mb-2">About / Bio</label>
+                    <input v-model="tempBio" class="w-full border-b border-[#008069] bg-transparent outline-none py-2 text-primary mb-6" placeholder="A short About / Bio section">
+                    <button @click="saveProfile" class="w-full bg-[#00a884] text-white py-3 rounded font-bold">Save</button>
+                </div>
+            </div>
+
+            <!-- Tab: Settings -->
+            <div v-if="activeTab === 'settings'" class="flex-1 bg-panel flex flex-col h-full absolute inset-0 z-20 text-primary">
+                <div class="bg-header px-4 py-3 flex items-center border-b">
+                    <button @click="activeTab = 'chats'" class="mr-4 text-secondary"><i class="fas fa-arrow-left"></i></button>
+                    <h2 class="font-bold text-primary">Settings</h2>
+                </div>
+                <div class="p-4 flex-1 overflow-y-auto">
+                    <div @click="toggleTheme" class="flex justify-between items-center py-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-header" style="transition: background-color 0.2s;">
+                        <div class="flex items-center text-primary">
+                            <i class="fas fa-sun text-secondary w-8 text-center"></i>
+                            <span>Theme</span>
+                        </div>
+                        <div class="relative">
+                            <label class="toggle-label">
+                                <input type="checkbox" id="themeToggle" class="toggle-checkbox" :checked="isDarkMode"/>
+                            </label>
+                        </div>
+                    </div>
+                    <div @click="activeTab = 'blocked'" class="flex items-center py-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-header" style="transition: background-color 0.2s;">
+                        <i class="fas fa-ban text-secondary w-8 text-center"></i>
+                        <span class="text-primary">Blocked Contacts</span>
+                    </div>
+                    <div @click="logout" class="flex items-center py-4 text-red-500 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 mt-4 rounded">
+                        <i class="fas fa-sign-out-alt w-8 text-center"></i>
+                        <span>Log Out / Sign Out</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Blocked List -->
+            <div v-if="activeTab === 'blocked'" class="flex-1 bg-panel flex flex-col h-full absolute inset-0 z-20 text-primary">
+                <div class="bg-header px-4 py-3 flex items-center border-b">
+                    <button @click="activeTab = 'settings'" class="mr-4 text-secondary"><i class="fas fa-arrow-left"></i></button>
+                    <h2 class="font-bold text-primary">Blocked Contacts</h2>
+                </div>
+                <div class="p-2 overflow-y-auto flex-1">
+                    <div v-for="user in blockedList" :key="user.uid" class="flex justify-between items-center p-3 border-b border-gray-100 dark:border-gray-700">
+                        <span class="text-primary">{{ user.username }}</span>
+                        <button @click="unblockUser(user.uid)" class="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Unblock</button>
+                    </div>
+                    <div v-if="blockedList.length === 0" class="text-center text-secondary mt-4">No blocked contacts.</div>
+                </div>
+            </div>
+
+            <!-- Contact Context Menu -->
+            <div v-if="contactMenu.visible" class="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50" @click="contactMenu.visible = false">
+                <div class="bg-panel rounded-lg shadow-xl w-64 overflow-hidden" @click.stop>
+                    <div class="p-4 border-b dark:border-gray-700 font-bold text-primary">{{ contactMenu.chat.name }}</div>
+                    <div @click="deleteContact(contactMenu.chat)" class="p-4 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-red-500">
+                        <i class="fas fa-trash mr-3"></i> Delete Contact
+                    </div>
+                    <div @click="blockContact(contactMenu.chat)" class="p-4 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-red-500">
+                        <i class="fas fa-ban mr-3"></i> Block Contact
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div :class="['chat-area flex flex-col h-full bg-[#efeae2] relative', activeChat ? 'active' : 'hidden md:flex flex-1']">
+            <div class="absolute inset-0 chat-bg opacity-40 z-0 pointer-events-none"></div>
+            
+            <div v-if="!activeChat" class="hidden md:flex flex-col items-center justify-center h-full text-center relative z-10 border-b-[6px] border-[#25d366] bg-panel">
+                <h1 class="text-3xl font-light text-secondary mb-4">5S Chat App</h1>
+                <p class="text-secondary text-sm">Send and receive messages without keeping your phone online.<br>Use 5S Chat on up to 4 linked devices and 1 phone.</p>
+                <div class="mt-8 text-xs text-secondary"><i class="fas fa-lock text-[10px]"></i> End-to-end encrypted</div>
+            </div>
+
+            <template v-else>
+                <!-- Chat Header -->
+                <div class="bg-header px-4 py-2 flex items-center justify-between border-b z-20 shadow-sm" style="border-color: var(--wa-border);">
+                    <div class="flex items-center">
+                        <button @click="closeChat" class="mr-2 md:hidden text-secondary"><i class="fas fa-arrow-left"></i></button>
+                        <!-- Clickable Profile -->
+                        <div class="flex items-center cursor-pointer" @click="openFriendProfile">
+                            <img :src="activeChat.avatar" class="w-10 h-10 rounded-full mr-3">
+                            <div class="flex flex-col">
+                                <span class="font-medium text-primary">{{ activeChat.name }}</span>
+                                <span class="text-xs text-secondary truncate h-4">{{ typingStatus || 'click here for info' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-5 text-secondary">
+                        <button @click="initiateCall('video')"><i class="fas fa-video"></i></button>
+                        <button @click="initiateCall('voice')"><i class="fas fa-phone"></i></button>
+                        <button><i class="fas fa-ellipsis-v"></i></button>
+                    </div>
+                </div>
+
+                <!-- Messages Area -->
+                <div class="flex-1 overflow-y-auto p-4 relative z-10" id="messages-container" @scroll="handleScroll">
+                    <div class="flex justify-center mb-4">
+                        <div class="bg-[#ffeecd] text-[12.5px] text-gray-800 px-3 py-1.5 rounded-lg shadow-sm text-center max-w-[90%]">
+                            <i class="fas fa-lock text-[10px] mr-1"></i> Messages are encrypted. No one outside of this chat can read them.
+                        </div>
+                    </div>
+
+                    <div v-for="(msg, index) in messages" :key="msg.id" 
+                         :class="['flex flex-col mb-2', msg.sender === currentUser.uid ? 'items-end' : 'items-start']">
+                        
+                        <div :class="['msg-bubble flex flex-col min-w-[80px]', msg.sender === currentUser.uid ? 'msg-out' : 'msg-in']"
+                             @contextmenu.prevent="showContext(msg, $event)"
+                             @touchstart="msg.sender !== currentUser.uid && handleSwipeStart(msg, $event)"
+                             @touchmove="msg.sender !== currentUser.uid && handleSwipeMove($event)"
+                             @touchend="msg.sender !== currentUser.uid && handleSwipeEnd($event)"
+                             :style="getSwipeStyle(msg.id)">
+                            
+                            <div v-if="msg.quoted" class="bg-black bg-opacity-5 border-l-4 border-green-600 rounded p-1 mb-1 text-xs truncate max-w-full">
+                                <span class="font-bold text-green-700 block">{{ msg.quoted.sender === currentUser.uid ? 'You' : activeChat.name }}</span>
+                                {{ msg.quoted.text || '📷 Voice/Media' }}
+                            </div>
+
+                            <div class="inline-block w-full">
+                                <div v-if="msg.type === 'text'" class="inline text-sm text-primary break-words">{{ msg.text }}</div>
+                                
+                                <!-- File Attachment UI -->
+                                <div v-if="msg.type === 'file'" class="file-msg-box">
+                                     <div class="bg-gray-200 dark:bg-gray-700 p-2 rounded mr-3">
+                                         <i class="fas fa-file text-2xl text-red-500"></i>
+                                     </div>
+                                     <div class="flex-1 min-w-0">
+                                         <p class="text-sm font-bold truncate text-primary">{{ msg.text || 'Document' }}</p>
+                                         <p class="text-xs text-secondary">File</p>
+                                     </div>
+                                     <button @click="downloadFile(msg.url, msg.text)" class="p-2 bg-wa-teal rounded-full text-white ml-2 shadow hover:bg-opacity-80">
+                                         <i class="fas fa-arrow-down"></i>
+                                     </button>
+                                </div>
+
+                                <div v-if="msg.type === 'audio'" class="flex items-center gap-2 min-w-[200px] py-1">
+                                    <button @click="playAudio(msg.id, msg.url)" class="text-secondary">
+                                        <i :class="['fas', currentAudioId === msg.id ? 'fa-pause' : 'fa-play']"></i>
+                                    </button>
+                                    <div class="h-1 bg-gray-300 flex-1 rounded overflow-hidden">
+                                        <div class="h-full bg-blue-500" style="width: 0%" :id="'prog-'+msg.id"></div>
+                                    </div>
+                                    <div class="flex items-center text-xs text-secondary">
+                                        <img :src="activeChat.avatar" class="w-4 h-4 rounded-full mr-1 opacity-50">
+                                    </div>
+                                </div>
+                                <div class="msg-meta">
+                                    <span>{{ formatTime(msg.timestamp) }}</span>
+                                    <span v-if="msg.sender === currentUser.uid">
+                                        <i v-if="msg.status === 'seen'" class="fas fa-check-double text-blue-500 text-[10px]"></i>
+                                        <i v-else-if="msg.status === 'delivered'" class="fas fa-check-double text-gray-400 text-[10px]"></i>
+                                        <i v-else class="fas fa-check text-gray-400 text-[10px]"></i>
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <!-- Reaction Badge -->
+                            <div v-if="msg.reaction" class="reaction-badge">{{ msg.reaction }}</div>
+                        </div>
+                    </div>
+                    <div id="scroll-anchor"></div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="bg-header px-2 py-2 flex items-end gap-2 z-20 relative">
+                    <div v-if="quotedMsg" class="absolute bottom-[60px] left-0 right-0 bg-panel p-2 border-l-4 border-green-600 m-2 rounded shadow-lg z-30 flex justify-between items-center">
+                        <div class="overflow-hidden">
+                            <div class="text-xs text-green-700 font-bold">Replying to {{ quotedMsg.sender === currentUser.uid ? 'You' : activeChat.name }}</div>
+                            <div class="text-sm text-secondary truncate">{{ quotedMsg.text || 'Media' }}</div>
+                        </div>
+                        <button @click="quotedMsg = null"><i class="fas fa-times text-secondary"></i></button>
+                    </div>
+
+                    <!-- Emoji Picker with Click-Outside -->
+                    <div class="relative" @click.stop>
+                        <button @click="showEmojiPicker = !showEmojiPicker" class="p-3 text-secondary hover:text-primary"><i class="far fa-smile text-xl"></i></button>
+                        <div v-if="showEmojiPicker" class="absolute bottom-14 left-0 bg-panel shadow-lg rounded-lg border dark:border-gray-700 p-2 w-64 z-50">
+                            <div class="flex gap-2 border-b dark:border-gray-700 pb-2 mb-2 overflow-x-auto">
+                                <span v-for="emoji in trendingEmojis" :key="emoji" @click="addEmoji(emoji)" class="emoji-btn">{{ emoji }}</span>
+                                <span class="emoji-btn text-green-500 font-bold" @click="alert('Add Stickers (Placeholder)')">+</span>
+                            </div>
+                            <div class="emoji-picker-container">
+                                <span v-for="emoji in emojiList" :key="emoji" @click="addEmoji(emoji)" class="emoji-btn">{{ emoji }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- File Input Button -->
+                     <div class="relative">
+                        <input type="file" id="fileInput" class="hidden" @change="handleFileUpload">
+                        <button onclick="document.getElementById('fileInput').click()" class="p-3 text-secondary hover:text-primary"><i class="fas fa-plus text-xl"></i></button>
+                    </div>
+
+                    <div class="flex-1 bg-panel rounded-lg flex items-center px-4 py-2 min-h-[42px] mb-1">
+                        <textarea v-model="newMessage" @input="handleTyping" @keydown.enter.exact.prevent="sendMessage"
+                                  placeholder="Type a message" 
+                                  class="w-full max-h-32 bg-transparent outline-none resize-none text-sm h-[24px] text-primary" 
+                                  rows="1"></textarea>
+                    </div>
+
+                    <div v-if="!newMessage && !isRecording" @click="startRecording" class="p-3 mb-1 bg-[#00a884] rounded-full text-white cursor-pointer shadow-md hover:scale-105 transition-transform">
+                        <i class="fas fa-microphone text-lg"></i>
+                    </div>
+                    <div v-else-if="isRecording" @click="stopRecording" class="p-3 mb-1 bg-red-500 rounded-full text-white cursor-pointer shadow-md animate-pulse">
+                        <i class="fas fa-stop text-lg"></i>
+                    </div>
+                    <div v-else @click="sendMessage" class="p-3 mb-1 bg-[#00a884] rounded-full text-white cursor-pointer shadow-md hover:scale-110 transition-transform">
+                        <i class="fas fa-paper-plane text-lg"></i>
+                    </div>
+                </div>
+
+                <!-- Message Context Menu -->
+                <div v-if="contextMenu.visible" 
+                     class="fixed bg-panel shadow-xl rounded py-1 z-50 w-40 text-sm border border-gray-200 dark:border-gray-700"
+                     :style="{top: contextMenu.y + 'px', left: contextMenu.x + 'px'}">
+                    <div @click="setQuote(contextMenu.msg); contextMenu.visible=false" class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-primary">Reply</div>
+                    <div @click="copyMessage(contextMenu.msg)" class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-primary">Copy</div>
+                    
+                    <!-- Conditional Info / React -->
+                    <div v-if="contextMenu.msg.sender === currentUser.uid" @click="openMessageInfo(contextMenu.msg)" class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-primary">Info</div>
+                    <div v-else @click="openReactionPicker(contextMenu.msg)" class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-primary">React</div>
+                    
+                    <div v-if="contextMenu.msg.sender === currentUser.uid" @click="deleteMessage(contextMenu.msg)" class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-red-500">Delete</div>
+                </div>
+                
+                 <!-- Reaction Picker -->
+                <div v-if="reactionPicker.visible" class="fixed bg-panel shadow-xl rounded p-2 z-50 border border-gray-200 dark:border-gray-700 grid grid-cols-4 gap-2" :style="{top: reactionPicker.y + 'px', left: reactionPicker.x + 'px'}">
+                    <span v-for="emoji in trendingEmojis" :key="emoji" @click="reactToMessage(emoji)" class="cursor-pointer text-xl p-1 hover:bg-gray-100 rounded">{{emoji}}</span>
+                </div>
+
+                <!-- Message Info Popup -->
+                <div v-if="messageInfo.visible" 
+                     class="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-60 animate-fade-in"
+                     @click="messageInfo.visible = false">
+                    <div class="bg-panel rounded-lg shadow-2xl p-6 w-80 animate-scale-in" @click.stop>
+                        <h3 class="text-lg font-bold text-primary mb-4">Message Info</h3>
+                        <div class="space-y-4 text-sm text-secondary">
+                            <div class="flex justify-between items-center">
+                                <span><i class="fas fa-check-double text-blue-500 mr-2"></i>Status</span>
+                                <span class="font-bold text-primary capitalize">{{ messageInfo.msg.status }}</span>
+                            </div>
+                             <div class="flex justify-between items-center">
+                                <span><i class="far fa-paper-plane mr-2"></i>Sent</span>
+                                <span class="text-primary">{{ formatDetailedTime(messageInfo.msg.timestamp) }}</span>
+                            </div>
+                            
+                            <div v-if="messageInfo.msg.deliveredAt" class="flex justify-between items-center">
+                                <span><i class="fas fa-check text-gray-500 mr-2"></i>Delivered</span>
+                                <span class="text-primary">{{ formatDetailedTime(messageInfo.msg.deliveredAt) }}</span>
+                            </div> 
+                             <div v-else-if="messageInfo.msg.status === 'delivered' || messageInfo.msg.status === 'seen'" class="flex justify-between items-center opacity-50">
+                                <span><i class="fas fa-check text-gray-500 mr-2"></i>Delivered</span>
+                                <span class="text-primary">...</span>
+                            </div> 
+                            
+                            <div v-if="messageInfo.msg.seenAt" class="flex justify-between items-center">
+                                <span><i class="fas fa-check-double text-blue-500 mr-2"></i>Read</span>
+                                <span class="text-primary">{{ formatDetailedTime(messageInfo.msg.seenAt) }}</span>
+                            </div> 
+                             <div v-else-if="messageInfo.msg.status === 'seen'" class="flex justify-between items-center opacity-50">
+                                <span><i class="fas fa-check-double text-blue-500 mr-2"></i>Read</span>
+                                <span class="text-primary">...</span>
+                            </div> 
+                        </div>
+                        <button @click="messageInfo.visible = false" class="mt-6 w-full bg-wa-teal text-white py-2 rounded font-bold shadow-md hover:shadow-lg transition">Close</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Friend Profile Overlay -->
+        <div v-if="friendProfile.visible" class="fixed inset-0 z-[60] bg-panel flex flex-col text-primary animate-slide-in">
+            <div class="bg-header px-4 py-3 flex items-center border-b">
+                <button @click="friendProfile.visible = false; window.history.back()" class="mr-4 text-secondary"><i class="fas fa-arrow-left"></i></button>
+                <h2 class="font-bold">Contact Info</h2>
+            </div>
+            <div class="flex flex-col items-center pt-8 p-4 overflow-y-auto flex-1">
+                <img :src="friendProfile.data.avatar" class="w-40 h-40 rounded-full border-4 border-white shadow-lg mb-6">
+                <h2 class="text-2xl font-bold mb-1">{{ friendProfile.data.username }}</h2>
+                <p class="text-secondary text-sm mb-6">UID: {{ friendProfile.data.numeric_uid }}</p>
+                
+                <div class="w-full bg-header p-4 rounded-lg shadow-sm mb-3">
+                    <p class="text-xs text-[#008069] font-bold uppercase mb-1">About</p>
+                    <p class="text-primary">{{ friendProfile.data.bio || 'No bio available.' }}</p>
+                </div>
+                
+                <div class="w-full mt-4 bg-header p-4 rounded-lg shadow-sm flex items-center text-red-500 cursor-pointer" @click="blockContact(activeChat)">
+                    <i class="fas fa-ban mr-4"></i>
+                    <span>Block {{ friendProfile.data.username }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add this section at the bottom of the App Container div -->
+<!-- CALL UI OVERLAY -->
+<div v-if="callState.active" class="fixed inset-0 z-[100] bg-gray-900 text-white flex flex-col items-center justify-center p-4">
+    <div class="mb-8 text-center">
+        <h2 class="text-2xl font-bold">{{ callState.status }}</h2>
+        <p class="text-sm opacity-75">{{ callState.peerName }}</p>
+    </div>
+    
+    <!-- Video Streams -->
+    <div class="relative w-full max-w-sm aspect-video bg-black rounded-lg overflow-hidden mb-8 shadow-2xl">
+        <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+        <video id="localVideo" autoplay playsinline muted class="absolute bottom-2 right-2 w-24 h-24 rounded bg-gray-800 border"></video>
+    </div>
+
+    <!-- Call Controls -->
+    <div class="flex gap-8">
+        <button @click="toggleMute" :class="callState.isMuted ? 'bg-red-500' : 'bg-gray-600'" class="w-14 h-14 rounded-full flex items-center justify-center"><i class="fas fa-microphone-slash"></i></button>
+        <button @click="endCall" class="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center text-2xl"><i class="fas fa-phone-slash"></i></button>
+        <button @click="toggleCamera" :class="callState.isCameraOff ? 'bg-red-500' : 'bg-gray-600'" class="w-14 h-14 rounded-full flex items-center justify-center"><i class="fas fa-video-slash"></i></button>
+    </div>
+</div>
+
+<script>
+// --- Inside the Vue 'setup' function, add this WebRTC Logic ---
+
+const peerConnection = ref(null);
+const localStream = ref(null);
+
+const configuration = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
+
+const initiateCall = async (type) => {
+    if (!activeChat.value) return;
+    callState.active = true;
+    callState.status = 'Calling...';
+    callState.peerName = activeChat.value.name;
+    callState.peerAvatar = activeChat.value.avatar;
+    callState.peerId = activeChat.value.peerUid;
+    callState.isIncoming = false;
+
+    localStream.value = await navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true });
+    document.getElementById('localVideo').srcObject = localStream.value;
+
+    peerConnection.value = new RTCPeerConnection(configuration);
+    localStream.value.getTracks().forEach(track => peerConnection.value.addTrack(track, localStream.value));
+
+    peerConnection.value.onicecandidate = e => {
+        if (e.candidate) db.ref(`calls/${callState.peerId}/candidates`).push(e.candidate);
+    };
+
+    peerConnection.value.ontrack = e => {
+        document.getElementById('remoteVideo').srcObject = e.streams[0];
+    };
+
+    const offer = await peerConnection.value.createOffer();
+    await peerConnection.value.setLocalDescription(offer);
+    
+    db.ref(`calls/${callState.peerId}`).set({
+        from: currentUser.value.uid,
+        type: 'offer',
+        sdp: offer,
+        callType: type,
+        timestamp: Date.now()
+    });
+
+    listenForSignals();
+};
+
+const answerCall = async () => {
+    callState.active = true;
+    callState.status = 'Connecting...';
+    
+    const callData = (await db.ref(`calls/${currentUser.value.uid}`).once('value')).val();
+    
+    localStream.value = await navigator.mediaDevices.getUserMedia({ video: callData.callType === 'video', audio: true });
+    document.getElementById('localVideo').srcObject = localStream.value;
+
+    peerConnection.value = new RTCPeerConnection(configuration);
+    localStream.value.getTracks().forEach(track => peerConnection.value.addTrack(track, localStream.value));
+
+    peerConnection.value.onicecandidate = e => {
+        if (e.candidate) db.ref(`calls/${callState.peerId}/candidates`).push(e.candidate);
+    };
+
+    peerConnection.value.ontrack = e => {
+        document.getElementById('remoteVideo').srcObject = e.streams[0];
+    };
+
+    await peerConnection.value.setRemoteDescription(new RTCSessionDescription(callData.sdp));
+    const answer = await peerConnection.value.createAnswer();
+    await peerConnection.value.setLocalDescription(answer);
+
+    db.ref(`calls/${callState.peerId}`).update({ type: 'answer', sdp: answer });
+    listenForSignals();
+};
+
+const listenForSignals = () => {
+    db.ref(`calls/${currentUser.value.uid}/candidates`).on('child_added', snap => {
+        if (snap.val()) peerConnection.value.addIceCandidate(new RTCIceCandidate(snap.val()));
+    });
+    db.ref(`calls/${currentUser.value.uid}/type`).on('value', snap => {
+        if (snap.val() === 'answer') {
+            db.ref(`calls/${currentUser.value.uid}`).once('value').then(s => {
+                peerConnection.value.setRemoteDescription(new RTCSessionDescription(s.val().sdp));
+            });
+        }
+    });
+};
+
+const toggleMute = () => {
+    localStream.value.getAudioTracks()[0].enabled = !localStream.value.getAudioTracks()[0].enabled;
+    callState.isMuted = !callState.isMuted;
+};
+
+const toggleCamera = () => {
+    localStream.value.getVideoTracks()[0].enabled = !localStream.value.getVideoTracks()[0].enabled;
+    callState.isCameraOff = !callState.isCameraOff;
+};
+
+const endCall = () => {
+    if (localStream.value) localStream.value.getTracks().forEach(t => t.stop());
+    if (peerConnection.value) peerConnection.value.close();
+    db.ref(`calls/${currentUser.value.uid}`).remove();
+    callState.active = false;
+};
+</script>
+
+<script>
+// --- Inside the Vue 'setup' function, add this WebRTC Logic ---
+
+const peerConnection = ref(null);
+const localStream = ref(null);
+
+const configuration = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
+
+const initiateCall = async (type) => {
+    if (!activeChat.value) return;
+    callState.active = true;
+    callState.status = 'Calling...';
+    callState.peerName = activeChat.value.name;
+    callState.peerAvatar = activeChat.value.avatar;
+    callState.peerId = activeChat.value.peerUid;
+    callState.isIncoming = false;
+
+    localStream.value = await navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true });
+    document.getElementById('localVideo').srcObject = localStream.value;
+
+    peerConnection.value = new RTCPeerConnection(configuration);
+    localStream.value.getTracks().forEach(track => peerConnection.value.addTrack(track, localStream.value));
+
+    peerConnection.value.onicecandidate = e => {
+        if (e.candidate) db.ref(`calls/${callState.peerId}/candidate`).push(e.candidate);
+    };
+
+    peerConnection.value.ontrack = e => {
+        document.getElementById('remoteVideo').srcObject = e.streams[0];
+    };
+
+    const offer = await peerConnection.value.createOffer();
+    await peerConnection.value.setLocalDescription(offer);
+    db.ref(`calls/${callState.peerId}`).set({
+        from: currentUser.value.uid,
+        type: 'offer',
+        sdp: offer,
+        callType: type
+    });
+
+    listenForSignals();
+};
+
+const answerCall = async () => {
+    callState.status = 'Connecting...';
+    localStream.value = await navigator.mediaDevices.getUserMedia({ video: callState.callType === 'video', audio: true });
+    document.getElementById('localVideo').srcObject = localStream.value;
+
+    peerConnection.value = new RTCPeerConnection(configuration);
+    localStream.value.getTracks().forEach(track => peerConnection.value.addTrack(track, localStream.value));
+
+    peerConnection.value.onicecandidate = e => {
+        if (e.candidate) db.ref(`calls/${callState.peerId}/candidate`).push(e.candidate);
+    };
+
+    peerConnection.value.ontrack = e => {
+        document.getElementById('remoteVideo').srcObject = e.streams[0];
+    };
+
+    const callData = (await db.ref(`calls/${currentUser.value.uid}`).once('value')).val();
+    await peerConnection.value.setRemoteDescription(new RTCSessionDescription(callData.sdp));
+    const answer = await peerConnection.value.createAnswer();
+    await peerConnection.value.setLocalDescription(answer);
+
+    db.ref(`calls/${callState.peerId}`).update({ type: 'answer', sdp: answer });
+    listenForSignals();
+};
+
+const listenForSignals = () => {
+    db.ref(`calls/${currentUser.value.uid}`).on('child_added', snapshot => {
+        if (snapshot.key === 'candidate') {
+            peerConnection.value.addIceCandidate(new RTCIceCandidate(snapshot.val()));
+        }
+    });
+
+    db.ref(`calls/${currentUser.value.uid}/type`).on('value', snapshot => {
+        if (snapshot.val() === 'answer') {
+            const data = snapshot.val(); // Simplified
+            // In production, handle answer SDP here
+        }
+    });
+};
+
+const toggleMute = () => {
+    localStream.value.getAudioTracks()[0].enabled = !localStream.value.getAudioTracks()[0].enabled;
+    callState.isMuted = !callState.isMuted;
+};
+
+const toggleCamera = () => {
+    localStream.value.getVideoTracks()[0].enabled = !localStream.value.getVideoTracks()[0].enabled;
+    callState.isCameraOff = !callState.isCameraOff;
+};
+
+const endCall = () => {
+    if (localStream.value) localStream.value.getTracks().forEach(track => track.stop());
+    if (peerConnection.value) peerConnection.value.close();
+    db.ref(`calls/${currentUser.value.uid}`).remove();
+    callState.active = false;
+};
+</script>
+
+<script>
+const { createApp, ref, reactive, onMounted, computed, nextTick } = Vue;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDm_3SA_oYFa1BnIBrPkcU4CfbUV0ZcUKI",
+  authDomain: "codchat-63313.firebaseapp.com",
+  databaseURL: "https://codchat-63313-default-rtdb.firebaseio.com",
+  projectId: "codchat-63313",
+  storageBucket: "codchat-63313.firebasestorage.app",
+  messagingSenderId: "840916108108",
+  appId: "1:840916108108:web:031231f2bedd5edec2c5e9"
+};
+
+createApp({
+    setup() {
+        const loading = ref(false);
+        const currentUser = ref(null);
+        const isRegistering = ref(false);
+        const authError = ref('');
+        const authForm = reactive({ email: '', password: '' });
+
+        const activeTab = ref('chats');
+        const activeChat = ref(null);
+        const newMessage = ref('');
+        const chatList = ref([]);
+        const messages = ref([]);
+        const typingStatus = ref('');
+        const contextMenu = reactive({ visible: false, x: 0, y: 0, msg: null });
+        const quotedMsg = ref(null);
+        
+        const contactMenu = reactive({ visible: false, chat: null });
+        const isDarkMode = ref(false);
+        const blockedList = ref([]);
+        const tempName = ref('');
+        const tempBio = ref('');
+        
+        // Emoji & Info State
+        const showEmojiPicker = ref(false);
+        const trendingEmojis = ['😂', '❤️', '👍', '😭', '🙏', '🔥'];
+        const emojiList = ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🙈', '🙉', '🙊', '💋', '💌', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '❣️', '💔', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💯', '💢', '💥', '💫', '💦', '💨', '🕳️', '💣', '💬', '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤', '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁️', '👅', '👄'];
+        const friendProfile = reactive({ visible: false, data: {} });
+        const messageInfo = reactive({ visible: false, msg: {} });
+        const reactionPicker = reactive({ visible: false, msg: null, x: 0, y: 0 }); // Reaction state
+
+        // Swipe
+        const touchStartX = ref(0);
+        const touchCurrentX = ref(0);
+        const swipingMsgId = ref(null);
+
+        const editingName = ref(false); 
+        const targetUidInput = ref('');
+        const reqStatus = ref(null);
+        const requests = ref([]);
+        const requestCount = computed(() => requests.value.filter(r => r.type === 'incoming').length);
+
+        const isRecording = ref(false);
+        const currentAudioId = ref(null);
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let audioPlayer = null;
+
+        const callState = reactive({
+            active: false,
+            status: '',
+            peerName: '',
+            peerAvatar: '',
+            peerId: '',
+            isIncoming: false,
+            callType: 'voice'
+        });
+
+        let db, auth;
+        let chatUnsub = null;
+        let longPressTimer;
+
+        const appStartTime = Date.now();
+        const activeChatListeners = new Set();
+        const notifiedMessages = new Set();
+
+        // Mobile Back Button Handler (Feature 3)
+        const handlePopState = (event) => {
+            if (friendProfile.visible) {
+                friendProfile.visible = false;
+            } else if (activeChat.value) {
+                closeChat();
+            } else if (activeTab.value !== 'chats') {
+                activeTab.value = 'chats';
+            }
+        };
+
+        const requestNotificationPermission = () => { 
+            if (!("Notification" in window)) return; 
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    console.log("Notification permission granted.");
+                }
+            }); 
+        };
+        
+        const showIncomingMessageNotification = (senderName, messageText) => { 
+            if (!("Notification" in window)) return;
+            if (Notification.permission === 'granted') {
+                new Notification(senderName, { 
+                    body: messageText, 
+                    icon: 'https://cdn-icons-png.flaticon.com/512/124/124034.png', 
+                    vibrate: [200, 100, 200] 
+                }); 
+            }
+        };
+
+        onMounted(() => {
+            initializeFirebase();
+            document.addEventListener('click', (e) => { 
+                contextMenu.visible = false; 
+                contactMenu.visible = false;
+                reactionPicker.visible = false;
+                if (!e.target.closest('.emoji-picker') && !e.target.closest('button')) {
+                    showEmojiPicker.value = false;
+                }
+            });
+            window.addEventListener('popstate', handlePopState);
+            const savedTheme = localStorage.getItem('5s_theme');
+            if(savedTheme === 'dark') isDarkMode.value = true;
+        });
+
+        const initializeFirebase = () => {
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.database();
+            
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    loading.value = true;
+                    const snap = await db.ref(`users/${user.uid}`).once('value');
+                    if (snap.exists()) {
+                        currentUser.value = snap.val();
+                        tempName.value = currentUser.value.username;
+                        tempBio.value = currentUser.value.bio || '';
+                    } else {
+                        const emailBase = user.email ? user.email.split('@')[0] : 'User';
+                        const numeric_uid = Math.floor(100000 + Math.random() * 900000).toString();
+                        const profile = {
+                            username: emailBase, numeric_uid: numeric_uid,
+                            avatar: `https://ui-avatars.com/api/?name=${numeric_uid}&background=random`,
+                            uid: user.uid, email: user.email, bio: 'Hey there! I am using 5S Chat.'
+                        };
+                        await db.ref(`users/${user.uid}`).set(profile);
+                        await db.ref(`uids/${numeric_uid}`).set(user.uid);
+                        currentUser.value = profile;
+                    }
+                    requestNotificationPermission();
+                    setupListeners();
+                    fetchBlockedUsers();
+                    loading.value = false;
+                } else {
+                    currentUser.value = null;
+                    loading.value = false;
+                }
+            });
+        };
+
+        const addEmoji = (emoji) => {
+            newMessage.value += emoji;
+        };
+
+        const openMessageInfo = (msg) => {
+            messageInfo.msg = msg;
+            messageInfo.visible = true;
+            contextMenu.visible = false;
+        };
+        
+        const formatDetailedTime = (timestamp) => {
+             if (!timestamp) return '...';
+             const d = new Date(timestamp);
+             return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' - ' + d.toLocaleDateString();
+        };
+
+        const openReactionPicker = (msg) => {
+            reactionPicker.msg = msg;
+            reactionPicker.visible = true;
+            reactionPicker.x = contextMenu.x;
+            reactionPicker.y = contextMenu.y;
+            contextMenu.visible = false;
+        };
+
+        const reactToMessage = (emoji) => {
+            if (reactionPicker.msg) {
+                db.ref(`messages/${activeChat.value.id}/${reactionPicker.msg.id}`).update({ reaction: emoji });
+                reactionPicker.visible = false;
+            }
+        };
+
+        // NEW ROBUST DOWNLOAD LOGIC (No Window.open, No file://, Uses Blob)
+        const downloadFile = (dataUrl, filename) => {
+            try {
+                if (!dataUrl || !dataUrl.startsWith('data:')) {
+                    alert("Invalid file data.");
+                    return;
+                }
+
+                // Parse Base64 URL into Blob
+                const arr = dataUrl.split(',');
+                const mimeMatch = arr[0].match(/:(.*?);/);
+                const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                
+                while(n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+
+                // Create standard Blob
+                const blob = new Blob([u8arr], {type: mime});
+                
+                // Create temporary Object URL (Safe for Android WebView)
+                const url = window.URL.createObjectURL(blob);
+                
+                // Simulate click on <a> tag
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = filename || 'downloaded_file';
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup to free memory
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }, 100);
+
+            } catch (e) {
+                console.error("Download Error:", e);
+                alert("Failed to download the file. Error: " + e.message);
+            }
+        };
+
+        const handleFileUpload = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // Basic safety size limit (2MB) for base64 storage limits
+            if (file.size > 2 * 1024 * 1024) {
+                alert("File too large. Max 2MB allowed in this demo version.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = async () => {
+                const base64File = reader.result;
+                const msgData = {
+                    text: file.name, 
+                    url: base64File, 
+                    sender: currentUser.value.uid, 
+                    timestamp: firebase.database.ServerValue.TIMESTAMP, 
+                    type: 'file', 
+                    status: 'sent', 
+                    quoted: null 
+                };
+                await db.ref(`messages/${activeChat.value.id}`).push(msgData);
+                await db.ref(`chats/${activeChat.value.id}`).update({ 
+                    lastMessage: '📎 ' + file.name, 
+                    timestamp: firebase.database.ServerValue.TIMESTAMP, 
+                    lastSender: currentUser.value.uid, 
+                    lastStatus: 'sent' 
+                });
+            };
+        };
+
+        const openFriendProfile = async () => { if (!activeChat.value) return; const userSnap = await db.ref(`users/${activeChat.value.peerUid}`).once('value'); if (userSnap.exists()) { friendProfile.data = userSnap.val(); friendProfile.visible = true; window.history.pushState({view: 'profile'}, ''); } };
+        
+        const openChat = async (chat) => { 
+            activeChat.value = chat; activeTab.value = 'chats'; window.history.pushState({view: 'chat'}, ''); 
+            if (chatUnsub) chatUnsub(); 
+            
+            const messagesRef = db.ref(`messages/${chat.id}`).limitToLast(50);
+            let isFirstLoad = true;
+
+            messagesRef.on('value', (snap) => {
+                const data = snap.val();
+                const arr = [];
+                if (data) {
+                    Object.entries(data).forEach(([key, val]) => {
+                        arr.push({ id: key, ...val });
+                        if (val.sender !== currentUser.value.uid && val.status !== 'seen') {
+                           db.ref(`messages/${chat.id}/${key}`).update({ 
+                               status: 'seen', 
+                               seenAt: firebase.database.ServerValue.TIMESTAMP 
+                           });
+                        }
+                    });
+                }
+                const previousLength = messages.value.length;
+                messages.value = arr;
+                nextTick(() => {
+                    const container = document.getElementById('messages-container');
+                    if (container) {
+                        if (isFirstLoad || arr.length > previousLength) {
+                            container.scrollTop = container.scrollHeight;
+                            isFirstLoad = false;
+                        }
+                    }
+                });
+            });
+            chatUnsub = () => messagesRef.off();
+            db.ref(`chats/${chat.id}/typing/${chat.peerUid}`).on('value', (snap) => {
+                typingStatus.value = snap.val() ? 'typing...' : '';
+            });
+        };
+        
+        const closeChat = () => { if (chatUnsub) chatUnsub(); activeChat.value = null; typingStatus.value = ''; if (window.history.state && window.history.state.view === 'chat') { window.history.back(); } };
+        const toggleTheme = () => { isDarkMode.value = !isDarkMode.value; localStorage.setItem('5s_theme', isDarkMode.value ? 'dark' : 'light'); };
+        const saveProfile = async () => { if (tempName.value.trim()) { await db.ref(`users/${currentUser.value.uid}/username`).set(tempName.value); await db.ref(`users/${currentUser.value.uid}/bio`).set(tempBio.value); currentUser.value.username = tempName.value; currentUser.value.bio = tempBio.value; activeTab.value = 'profile'; } };
+        const handleChatLongPress = (chat, e) => { e.preventDefault(); contactMenu.visible = true; contactMenu.chat = chat; contactMenu.x = e.clientX; contactMenu.y = e.clientY; };
+        const handleChatTouchStart = (chat, e) => { clearTimeout(longPressTimer); longPressTimer = setTimeout(() => { contactMenu.visible = true; contactMenu.chat = chat; contactMenu.x = window.innerWidth / 2 - 128; contactMenu.y = window.innerHeight / 2 - 100; }, 800); e.currentTarget.addEventListener('touchmove', () => clearTimeout(longPressTimer), { once: true }); };
+        const handleChatTouchEnd = () => clearTimeout(longPressTimer);
+        const deleteContact = async (chat) => { if (confirm(`Delete chat with ${chat.name}?`)) { await db.ref(`user_chats/${currentUser.value.uid}/${chat.id}`).remove(); contactMenu.visible = false; if(activeChat.value?.id === chat.id) activeChat.value = null; } };
+        const blockContact = async (chat) => { if (confirm(`Block ${chat.name}?`)) { await db.ref(`users/${currentUser.value.uid}/blocked/${chat.peerUid}`).set(true); await db.ref(`user_chats/${currentUser.value.uid}/${chat.id}`).remove(); contactMenu.visible = false; if(activeChat.value?.id === chat.id) activeChat.value = null; fetchBlockedUsers(); } };
+        const fetchBlockedUsers = async () => { if(!currentUser.value) return; const snap = await db.ref(`users/${currentUser.value.uid}/blocked`).once('value'); const data = snap.val(); blockedList.value = []; if(data) { const uids = Object.keys(data); const promises = uids.map(uid => db.ref(`users/${uid}`).once('value')); const userSnaps = await Promise.all(promises); blockedList.value = userSnaps.map(s => s.val()).filter(u => u); } };
+        const unblockUser = async (uid) => { await db.ref(`users/${currentUser.value.uid}/blocked/${uid}`).remove(); fetchBlockedUsers(); };
+        const handleSwipeStart = (msg, e) => { if (msg.sender === currentUser.value.uid) return; touchStartX.value = e.touches[0].clientX; swipingMsgId.value = msg.id; touchCurrentX.value = 0; };
+        const handleSwipeMove = (e) => { if (!swipingMsgId.value) return; const currentX = e.touches[0].clientX; const diff = currentX - touchStartX.value; if (diff > 0 && diff < 100) touchCurrentX.value = diff; else if (diff < 0) touchCurrentX.value = 0; };
+        const handleSwipeEnd = (e) => { if (touchCurrentX.value > 50) { const msg = messages.value.find(m => m.id === swipingMsgId.value); if(msg) setQuote(msg); } touchStartX.value = 0; touchCurrentX.value = 0; swipingMsgId.value = null; };
+        const getSwipeStyle = (id) => { if (swipingMsgId.value === id) return { transform: `translateX(${touchCurrentX.value}px)` }; return { transform: 'translateX(0)' }; };
+        const toggleAuthMode = () => { isRegistering.value = !isRegistering.value; authError.value = ''; };
+        const handleAuth = async () => { loading.value = true; authError.value = ''; try { if (isRegistering.value) await auth.createUserWithEmailAndPassword(authForm.email, authForm.password); else await auth.signInWithEmailAndPassword(authForm.email, authForm.password); } catch (e) { authError.value = e.message.replace('Firebase:', '').trim(); loading.value = false; } };
+        const logout = () => { auth.signOut(); activeChat.value = null; chatList.value = []; messages.value = []; };
+        
+        const setupListeners = () => { 
+            const uid = currentUser.value.uid; 
+            db.ref(`requests/${uid}`).on('value', async (snap) => { const raw = snap.val() || {}; const list = []; for (const [key, val] of Object.entries(raw)) { const uSnap = await db.ref(`users/${key}`).once('value'); if (uSnap.exists()) list.push({ ...uSnap.val(), type: val.type }); } requests.value = list; }); 
+            const chatsRef = db.ref(`user_chats/${uid}`); 
+            chatsRef.on('value', async (snap) => { 
+                const chatsRaw = snap.val() || {}; 
+                const chatIds = Object.keys(chatsRaw); 
+                const promises = chatIds.map(async (chatId) => { 
+                    const chatMetaSnap = await db.ref(`chats/${chatId}`).once('value'); 
+                    const meta = chatMetaSnap.val(); if (!meta) return null; 
+                    const otherUid = Object.keys(meta.members).find(id => id !== uid); 
+                    const userSnap = await db.ref(`users/${otherUid}`).once('value'); 
+                    const otherUser = userSnap.val(); 
+                    const unread = meta.lastSender !== uid && meta.lastStatus !== 'seen' ? 1 : 0; 
+                    return { id: chatId, name: otherUser.username, avatar: otherUser.avatar, peerUid: otherUid, lastMessage: meta.lastMessage, timestamp: meta.timestamp, lastSender: meta.lastSender, status: meta.lastStatus || 'sent', unread }; 
+                }); 
+                const results = await Promise.all(promises); 
+                chatList.value = results.filter(c => c).sort((a,b) => b.timestamp - a.timestamp); 
+                
+                chatIds.forEach(chatId => { 
+                    if (!activeChatListeners.has(chatId)) {
+                        activeChatListeners.add(chatId);
+                        db.ref(`chats/${chatId}`).on('value', (metaSnap) => {
+                            const meta = metaSnap.val();
+                            if (meta && meta.lastSender !== uid && activeChat.value?.id !== chatId) {
+                                if (meta.timestamp > appStartTime) {
+                                    const msgKey = `${chatId}_${meta.timestamp}`;
+                                    if (!notifiedMessages.has(msgKey)) {
+                                        notifiedMessages.add(msgKey);
+                                        const chat = chatList.value.find(c => c.id === chatId);
+                                        showIncomingMessageNotification(chat?.name || 'New Message', meta.lastMessage);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }); 
+            }); 
+            db.ref(`calls/${uid}`).on('value', (snap) => { const call = snap.val(); if (call && call.type === 'offer' && !callState.active) { callState.active = true; callState.isIncoming = true; callState.status = 'Ringing'; callState.peerId = call.from; callState.callType = call.callType; db.ref(`users/${call.from}`).once('value').then(s => { const u = s.val(); callState.peerName = u.username; callState.peerAvatar = u.avatar; }); } else if (!call && callState.active) { endCallLocal(); } }); 
+        };
+        
+        const handleScroll = () => {}; 
+        const sendMessage = async () => { if (!newMessage.value.trim() && !quotedMsg.value) return; const txt = newMessage.value; newMessage.value = ''; const msgData = { text: txt, sender: currentUser.value.uid, timestamp: firebase.database.ServerValue.TIMESTAMP, type: 'text', status: 'sent', quoted: quotedMsg.value ? { text: quotedMsg.value.text, sender: quotedMsg.value.sender } : null }; quotedMsg.value = null; await db.ref(`messages/${activeChat.value.id}`).push(msgData); await db.ref(`chats/${activeChat.value.id}`).update({ lastMessage: txt, timestamp: firebase.database.ServerValue.TIMESTAMP, lastSender: currentUser.value.uid, lastStatus: 'sent' }); stopTyping(); };
+        const startRecording = async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaRecorder = new MediaRecorder(stream); audioChunks = []; mediaRecorder.ondataavailable = event => audioChunks.push(event.data); mediaRecorder.start(); isRecording.value = true; } catch (e) { alert("Microphone access denied."); } };
+        const stopRecording = () => { if (!mediaRecorder) return; mediaRecorder.onstop = async () => { const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' }); const reader = new FileReader(); reader.readAsDataURL(audioBlob); reader.onloadend = async () => { const base64Audio = reader.result; const msgData = { text: 'Voice Note', url: base64Audio, sender: currentUser.value.uid, timestamp: firebase.database.ServerValue.TIMESTAMP, type: 'audio', status: 'sent', quoted: null }; await db.ref(`messages/${activeChat.value.id}`).push(msgData); await db.ref(`chats/${activeChat.value.id}`).update({ lastMessage: '🎤 Voice Note', timestamp: firebase.database.ServerValue.TIMESTAMP, lastSender: currentUser.value.uid, lastStatus: 'sent' }); }; }; mediaRecorder.stop(); isRecording.value = false; };
+        const playAudio = (id, url) => { if (audioPlayer) { audioPlayer.pause(); if (currentAudioId.value === id) { currentAudioId.value = null; return; } } audioPlayer = new Audio(url); currentAudioId.value = id; audioPlayer.play(); audioPlayer.ontimeupdate = () => { const progEl = document.getElementById('prog-'+id); if (progEl) progEl.style.width = (audioPlayer.currentTime / audioPlayer.duration) * 100 + '%'; }; audioPlayer.onended = () => { currentAudioId.value = null; }; };
+        let typingTimeout;
+        const handleTyping = () => { db.ref(`chats/${activeChat.value.id}/typing/${currentUser.value.uid}`).set(true); clearTimeout(typingTimeout); typingTimeout = setTimeout(() => { if(activeChat.value) db.ref(`chats/${activeChat.value.id}/typing/${currentUser.value.uid}`).set(false); }, 2000); };
+        const stopTyping = () => { if(activeChat.value) db.ref(`chats/${activeChat.value.id}/typing/${currentUser.value.uid}`).set(false); };
+        const sendRequest = async () => { const uid = targetUidInput.value; if (!uid) return; const uidSnap = await db.ref(`uids/${uid}`).once('value'); if (!uidSnap.exists()) { reqStatus.value = { type: 'error', msg: 'User UID not found' }; return; } const targetFirebaseUid = uidSnap.val(); if (targetFirebaseUid === currentUser.value.uid) { reqStatus.value = { type: 'error', msg: 'Cannot add yourself' }; return; } await db.ref(`requests/${targetFirebaseUid}/${currentUser.value.uid}`).set({ type: 'incoming', timestamp: Date.now() }); await db.ref(`requests/${currentUser.value.uid}/${targetFirebaseUid}`).set({ type: 'outgoing', timestamp: Date.now() }); reqStatus.value = { type: 'success', msg: 'Request sent!' }; targetUidInput.value = ''; };
+        const acceptRequest = async (req) => { const myUid = currentUser.value.uid; const theirUid = req.uid; const chatId = myUid < theirUid ? `${myUid}_${theirUid}` : `${theirUid}_${myUid}`; const chatMeta = { members: { [myUid]: true, [theirUid]: true }, lastMessage: 'Chat started', timestamp: firebase.database.ServerValue.TIMESTAMP, lastSender: 'system' }; try { await db.ref(`chats/${chatId}`).set(chatMeta); await Promise.all([ db.ref(`user_chats/${myUid}/${chatId}`).set(true), db.ref(`user_chats/${theirUid}/${chatId}`).set(true), db.ref(`requests/${myUid}/${theirUid}`).remove(), db.ref(`requests/${theirUid}/${myUid}`).remove() ]); activeTab.value = 'chats'; await new Promise(resolve => setTimeout(resolve, 300)); const newChatEntry = chatList.value.find(c => c.id === chatId); if (newChatEntry) openChat(newChatEntry); } catch (e) { alert("Error accepting request."); } };
+        const rejectRequest = async (req) => { await db.ref(`requests/${currentUser.value.uid}/${req.uid}`).remove(); await db.ref(`requests/${req.uid}/${currentUser.value.uid}`).remove(); };
+        const toggleEditName = () => { tempName.value = currentUser.value.username; activeTab.value = 'editProfile'; };
+        const changeAvatar = () => { const newAv = `https://ui-avatars.com/api/?name=${currentUser.value.numeric_uid}&background=random&length=1&rounded=true&bold=true&ts=${Date.now()}`; db.ref(`users/${currentUser.value.uid}/avatar`).set(newAv); currentUser.value.avatar = newAv; };
+        
+        const showContext = (msg, e) => {
+            e.preventDefault(); 
+            contextMenu.msg = msg;
+            contextMenu.visible = true;
+            contextMenu.x = e.clientX;
+            contextMenu.y = e.clientY;
+        };
+
+        const deleteMessage = (msg) => { if (confirm("Delete this message?")) { db.ref(`messages/${activeChat.value.id}/${msg.id}`).remove(); contextMenu.visible = false; } };
+        const setQuote = (msg) => { quotedMsg.value = msg; contextMenu.visible = false;};
+        const copyMessage = (msg) => { if(msg.type === 'text') navigator.clipboard.writeText(msg.text); contextMenu.visible = false; };
+        const initiateCall = (type) => { if (!activeChat.value) return; callState.active = true; callState.status = 'Calling'; callState.peerName = activeChat.value.name; callState.peerAvatar = activeChat.value.avatar; callState.isIncoming = false; callState.peerId = activeChat.value.peerUid; db.ref(`calls/${activeChat.value.peerUid}`).set({ from: currentUser.value.uid, type: 'offer', callType: type, timestamp: Date.now() }); };
+        const answerCall = () => { callState.status = 'Connected'; db.ref(`calls/${callState.peerId}`).set({ from: currentUser.value.uid, type: 'answer', timestamp: Date.now() }); };
+        const endCall = () => { const peer = callState.peerId; endCallLocal(); db.ref(`calls/${peer}`).remove(); };
+        const endCallLocal = () => { callState.active = false; db.ref(`calls/${currentUser.value.uid}`).remove(); };
+        const formatTime = (ts) => { if (!ts) return ''; const d = new Date(ts); return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0'); };
+
+        return {
+            loading, currentUser, activeTab, activeChat, chatList, messages, newMessage, typingStatus, formatTime, openChat, closeChat, sendMessage,
+            requests, requestCount, targetUidInput, sendRequest, reqStatus, acceptRequest, rejectRequest, editingName, tempName, toggleEditName, changeAvatar,
+            handleTyping, contextMenu, showContext, deleteMessage, copyMessage, quotedMsg, setQuote, openMessageInfo, messageInfo, formatDetailedTime,
+            playAudio, currentAudioId, callState, initiateCall, answerCall, endCall, handleScroll, isRegistering, authForm, authError, toggleAuthMode, handleAuth, logout,
+            toggleTheme, isDarkMode, saveProfile, tempBio, handleChatLongPress, handleChatTouchStart, handleChatTouchEnd, contactMenu, deleteContact, blockContact,
+            blockedList, unblockUser, handleSwipeStart, handleSwipeMove, handleSwipeEnd, getSwipeStyle, swipingMsgId,
+            showEmojiPicker, trendingEmojis, emojiList, addEmoji, openFriendProfile, friendProfile,
+            handleFileUpload, openReactionPicker, reactionPicker, reactToMessage, downloadFile
+        };
+    }
+}).mount('#app');
+</script>
+</body>
+</html>
