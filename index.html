@@ -1862,7 +1862,7 @@
 
                 // ── onMounted ────────────────────────────────────────────────
                 onMounted(() => {
-                    if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+                    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                     auth = firebase.auth();
                     db = firebase.database();
 
