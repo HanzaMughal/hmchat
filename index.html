@@ -1227,7 +1227,8 @@
                         </div>
                         <h2 style="font-size:22px;font-weight:700;color:var(--text-1);margin:0 0 4px;">{{ user.username
                             }}</h2>
-                        <p style="font-size:13px;color:var(--text-2);margin:0 0 24px;">{{ user.bio || 'Hey there! I am using 5S Chat.' }}</p>
+                        <p style="font-size:13px;color:var(--text-2);margin:0 0 24px;">{{ user.bio || 'Hey there! I am
+                            using 5S Chat.' }}</p>
 
                         <div
                             style="width:100%;background:var(--header);border-radius:12px;overflow:hidden;margin-bottom:12px;">
@@ -1673,8 +1674,7 @@
 
                 <!-- Video Streams (Ensured for both voice/video to handle audio routing) -->
                 <template v-if="call.status === 'Connected'">
-                    <video id="remoteVideo"
-                        :class="call.type === 'video' ? 'video-fullscreen' : ''"
+                    <video id="remoteVideo" :class="call.type === 'video' ? 'video-fullscreen' : ''"
                         :style="call.type !== 'video' ? 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;' : ''"
                         autoplay playsinline style="pointer-events: none;"></video>
                     <video id="localVideo" v-if="call.type === 'video'" class="video-local-mini" autoplay playsinline
@@ -1740,16 +1740,15 @@
     <script>
         const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
 
-        const FB_CONFIG = {
-            apiKey: "AIzaSyDm_3SA_oYFa1BnIBrPkcU4CfbUV0ZcUKI",
-            authDomain: "codchat-63313.firebaseapp.com",
-            databaseURL: "https://codchat-63313-default-rtdb.firebaseio.com",
-            projectId: "codchat-63313",
-            storageBucket: "codchat-63313.firebasestorage.app",
-            messagingSenderId: "840916108108",
-            appId: "1:840916108108:web:031231f2bedd5edec2c5e9"
+        const firebaseConfig = {
+            apiKey: "AIzaSyB_MS4r1-kG0TuSt_YYTADTNxgXix0BTM0",
+            authDomain: "fir-chat-3a76d.firebaseapp.com",
+            databaseURL: "https://fir-chat-3a76d-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "fir-chat-3a76d",
+            storageBucket: "fir-chat-3a76d.firebasestorage.app",
+            messagingSenderId: "430056427282",
+            appId: "1:430056427282:web:ac4bb300596cf4176c6dcb"
         };
-
         // Fix 100vh for mobile browsers
         function fixVh() {
             document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
